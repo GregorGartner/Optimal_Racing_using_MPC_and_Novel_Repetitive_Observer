@@ -3,6 +3,7 @@ from math import pi, atan2
 import matplotlib
 import matplotlib.pyplot as plt
 from fsqp_pacejka_model_spline import get_pacejka_problem, calc_step_rk4
+#from optimal_lap_generator import get_pacejka_problem_optimal_lap
 from feasible_sqp import *
 from track_object import Track
 from nlp_slacken_constraints import get_slackened_problem
@@ -54,8 +55,8 @@ def get_ip_solver(x_sym, p_sym, f_exp, h_exp, pl=2):
     t0 = perf_counter()
     IP_nlp = {'x': x_sym, 'p': p_sym, 'f': f_exp, 'g': h_exp}
     IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp,
-                          {'ipopt': {'print_level': pl, 'linear_solver': 'ma57', 'max_iter': 10}, 'jit': True,
-                           'jit_options': {'flags': '-O3'}})
+                          {'ipopt': {'print_level': pl, 'linear_solver': 'mumps', 'max_iter': 10}, 'jit': True,
+                           'jit_options': {'flags': '-O3'}}) #'linear_solver': 'ma57'
     t1 = perf_counter()
     print("Finished compiling IPOPT solver in " + str(t1 - t0) + " seconds!")
     input("Press Enter to continue...")
@@ -67,7 +68,7 @@ def ipopt_ref(ip_solver, y, p, x_min, x_max, h_min, h_max):
     IP_sol = ip_solver(x0=y, p=p, lbx=x_min, ubx=x_max, lbg=h_min, ubg=h_max)
     IP_x = IP_sol['x'].full().T[0]
     IP_lam = IP_sol['lam_g'].full().T[0]
-
+    
     return ip_solver.stats(), IP_x, IP_lam
 
 
@@ -213,6 +214,7 @@ def run_simulations(num_laps, solver_type, noises, filenames, show_plot):
     N = 30
     dt = 1.0 / N
     nx, nh, npar, x_sym, p_sym, f_exp, f0_exp, h_exp, r_exp, x_min, x_max, h_min, h_max = get_pacejka_problem(N, dt)
+    #nx, nh, npar, x_sym, p_sym, f_exp, f0_exp, h_exp, r_exp, x_min, x_max, h_min, h_max = get_pacejka_problem_optimal_lap(N, dt)
 
     db_N = 6
     db_dt = dt
@@ -252,19 +254,24 @@ def run_simulations(num_laps, solver_type, noises, filenames, show_plot):
     db_h_func = ca.Function('h', [db_x_sym, db_p_sym], [db_h_exp])
     # db_IP_solver = get_ip_solver(db_x_sym, db_p_sym, db_f_exp, db_h_exp, pl=2)
 
-    lap_x = np.load("opt_lap_tightened_40.npy")
+    #lap_x = np.load("opt_lap_tightened_40.npy")
+    lap_states = np.load("lap2_states.npy")
+    lap_inputs = np.load("lap2_inputs.npy")
     load_state_idx = 30
 
-    N_lap = int((len(lap_x) - ns) / (ns + nu))
-    lap_states = [lap_x[i * ns: (i + 1) * ns] for i in range(N_lap)]
-    lap_inputs = [lap_x[(N_lap + 1) * ns + i * nu:(N_lap + 1) * ns + (i + 1) * nu] for i in range(N_lap)]
+    #N_lap = int((len(lap_x) - ns) / (ns + nu))
+    N_lap = int((len(lap_states) - ns) / ns)
+    # lap_states = [lap_x[i * ns: (i + 1) * ns] for i in range(N_lap)]
+    # lap_inputs = [lap_x[(N_lap + 1) * ns + i * nu:(N_lap + 1) * ns + (i + 1) * nu] for i in range(N_lap)]
 
-    csvnames = ['lap_states', 'lap_inputs']
-    for csvname in csvnames:
-        with open(csvname + '.csv', 'w', encoding='UTF8') as f:
-            writer = csv.writer(f)
-            for row in eval(csvname):
-                writer.writerow(row)
+    # csvnames = ['lap_states', 'lap_inputs']
+    # for csvname in csvnames:
+    #     with open(csvname + '.csv', 'w', encoding='UTF8') as f:
+    #         writer = csv.writer(f)
+    #         for row in eval(csvname):
+    #             writer.writerow(row)
+
+
 
     xN_flag = [0]
 
@@ -296,6 +303,7 @@ def run_simulations(num_laps, solver_type, noises, filenames, show_plot):
             pred_traj, = ax.plot([], [], 'r-')
             terminal_traj, = ax.plot([], [], 'b-o', alpha=0.5, markersize=3.0, linewidth=2.0)
 
+        #plt.show()
         full_results = []
         np.random.seed(int(noise * 100))
         constraint_violations = 0

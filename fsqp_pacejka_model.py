@@ -71,7 +71,8 @@ def calc_step_ee(x, u, model, dt, numerical=False):
     return dt * calc_dx(x, u, model, numerical)
 
 
-# integrator
+# integrator calculating a weighted average of different approximation 
+# in a Runge-Kutta 4th order method
 def calc_step_rk4(x, u, model, dt, numerical=False):
     k1 = calc_dx(x, u, model, numerical)
     k2 = calc_dx(x + dt / 2.0 * k1, u, model, numerical)
