@@ -193,6 +193,7 @@ def track_pos(t):
     y -= 1.05
     return x, y
 
+# plotting track with center line and boundaries
 def plot_track(ax = None):
     track_length = 0.3 * (26 + 4*np.pi)
     track_N = 600
@@ -227,10 +228,6 @@ def plot_track(ax = None):
     ax.set_aspect(1)
 
     return ax
-
-
-
-
 
 
 
