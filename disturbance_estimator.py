@@ -23,17 +23,17 @@ def find_interpolation_points(thetas, theta):
     return lower_idx, higher_idx
 
 
-# Defining the disturbance function
+# Defining the disturbance_function function
 thetas = np.linspace(0, 25, 1000)
-disturbance = 1.5 * np.sin(thetas/1.5) + 1/3 * \
+disturbance_function = 1.5 * np.sin(thetas/1.5) + 1/3 * \
     thetas - 1/20 * (thetas - 10) ** 2
 
-# # Plotting the disturbance function
-# plt.plot(thetas, disturbance)
+# # Plotting the disturbance_function function
+# plt.plot(thetas, disturbance_function)
 # plt.show()
 # input("Press Enter to continue...")
 
-# Initializing disturbance vector
+# Initializing disturbance_function vector
 first_column = np.arange(0, 25.0, 0.5)
 second_column = np.random.rand(50)
 d_est_vec = np.column_stack((first_column, second_column))
@@ -42,14 +42,14 @@ d_est_vec = np.column_stack((first_column, second_column))
 
 
 
-# Plotting the disturbance function
-plt.plot(thetas, disturbance)
+# Plotting the disturbance_function function
+plt.plot(thetas, disturbance_function)
 plt.scatter(d_est_vec[:, 0], d_est_vec[:, 1])
 plt.show()
 
 
 
-def luenberger_observer(d_est_vec, disturbance, thetas):
+def luenberger_observer(d_est_vec, disturbance_function):
     for i in range(100000):
         # generate random function argument (theta)
         random_index = random.randint(0, 999)
@@ -63,15 +63,15 @@ def luenberger_observer(d_est_vec, disturbance, thetas):
         ip1 = d_est_vec[lower_idx, :]
         ip2 = d_est_vec[higher_idx, :]
 
-        # estimate disturbance from linear interpolation
+        # estimate disturbance_function from linear interpolation
         d_est = ip2[1] * (random_arg - ip1[0]) / (ip2[0] - ip1[0]) + \
             ip1[1] * (ip2[0] - random_arg) / (ip2[0] - ip1[0])
 
-        # "measured" disturbance
+        # "measured" disturbance_function
         noise = np.random.normal(0, 1)
-        d_mes = disturbance[random_index] + noise
+        d_mes = disturbance_function[random_index] + noise
 
-        # update disturbance estimate
+        # update disturbance_function estimate
         d_est_new = d_est + 0.2 * (d_mes - d_est)
 
         # Find the closer interpolation point
@@ -86,51 +86,102 @@ def luenberger_observer(d_est_vec, disturbance, thetas):
     return d_est_vec
 
 
-#d_est_vec = luenberger_observer(d_est_vec, disturbance, thetas)
+#d_est_vec = luenberger_observer(d_est_vec, disturbance_function, thetas)
 
-# Plotting the disturbance function
-# plt.plot(thetas, disturbance)
+# Plotting the disturbance_function function
+# plt.plot(thetas, disturbance_function)
 # plt.scatter(d_est_vec[:, 0], d_est_vec[:, 1])
 # plt.show()
 
 
 
-
-
-
-
 # Kalman filter
 kalman_dist_est = np.random.rand(25)
-P = 1 # initial state variance
-R = 0.3 # measurement noise variance
-
-
-for i in range(100000):
-    # generate random function argument (theta)
-    random_index = random.randint(0, 999)
-    random_arg = (random_index / 1000) * 24
-
-    # "measured" disturbance
-    noise = np.random.normal(0, 0.2)
-    d_mes = disturbance[random_index] + noise
-
-    # measurement matrix with shape of state vector (inner product is scalar)
-    H_k = np.zeros(kalman_dist_est.shape)
-
-    idx1 = floor(random_arg)
-    idx2 = idx1 + 1
-    H_k[idx1] = (idx2 - random_arg) / (idx2 - idx1)
-    H_k[idx2] = (random_arg - idx1) / (idx2 - idx1)
-
-    K = P * H_k.T / (H_k @ (P * H_k) + R)
-
-    kalman_dist_est = kalman_dist_est + K * (d_mes - H_k @ kalman_dist_est)
 
 
 
+def kalman_filter_lin(kalman_dist_est, disturbance_function):
+    P = 1 # initial state variance
+    R = 0.3 # measurement noise variance
 
-x_values = np.arange(len(kalman_dist_est))
+    for i in range(100000):
+        # generate random function argument (theta)
+        random_index = random.randint(0, 999)
+        random_arg = (random_index / 1000) * 24
 
-plt.plot(thetas, disturbance)
+        # "measured" disturbance_function
+        noise = np.random.normal(0, 0.2)
+        d_mes = disturbance_function[random_index] + noise
+
+        # measurement matrix with shape of state vector (inner product is scalar)
+        H_k = np.zeros(kalman_dist_est.shape)
+
+        idx1 = floor(random_arg)
+        idx2 = idx1 + 1
+        H_k[idx1] = (idx2 - random_arg) / (idx2 - idx1)
+        H_k[idx2] = (random_arg - idx1) / (idx2 - idx1)
+
+        K = P * H_k.T / (H_k @ (P * H_k) + R)
+
+        kalman_dist_est = kalman_dist_est + K * (d_mes - H_k @ kalman_dist_est)
+
+        x_values = np.arange(len(kalman_dist_est))
+
+    return kalman_dist_est, x_values
+
+
+#kalman_dist_est, x_values = kalman_filter_lin(kalman_dist_est, disturbance_function)
+
+
+
+def kalman_filter_polyn(kalman_dist_est, disturbance_function):
+    P = 1 # initial state variance
+    R = 0.3 # measurement noise variance
+
+    for i in range(10000):
+        # generate random function argument (theta)
+        random_index = random.randint(0, 999)
+        random_arg = (random_index / 1000) * 24
+
+        # "measured" disturbance_function
+        noise = np.random.normal(0, 0.2)
+        d_mes = disturbance_function[random_index] + noise
+
+        # measurement matrix with shape of state vector (inner product is scalar)
+        H_k = np.zeros(kalman_dist_est.shape)
+
+        idx1 = floor(random_arg)
+        if idx1 == 0:
+            idx1 = 1
+        elif idx1 == 23:
+            idx1 = 22
+        idx0 = idx1 - 1
+        idx2 = idx1 + 1
+        idx3 = idx1 + 2
+
+        H_k[idx0] = (random_arg - idx1) * (random_arg - idx2) * (random_arg - idx3) / \
+            ((idx0 - idx1) * (idx0 - idx2) * (idx0 - idx3))
+        H_k[idx1] = (random_arg - idx0) * (random_arg - idx2) * (random_arg - idx3) / \
+            ((idx1 - idx0) * (idx1 - idx2) * (idx1 - idx3))
+        H_k[idx2] = (random_arg - idx0) * (random_arg - idx1) * (random_arg - idx3) / \
+            ((idx2 - idx0) * (idx2 - idx1) * (idx2 - idx3))
+        H_k[idx3] = (random_arg - idx0) * (random_arg - idx1) * (random_arg - idx2) / \
+            ((idx3 - idx0) * (idx3 - idx1) * (idx3 - idx2))
+
+        K = P * H_k.T / (H_k @ (P * H_k) + R)
+
+        kalman_dist_est = kalman_dist_est + K * (d_mes - H_k @ kalman_dist_est)
+
+        x_values = np.arange(len(kalman_dist_est))
+
+    return kalman_dist_est, x_values
+
+
+
+
+    
+kalman_dist_est, x_values = kalman_filter_polyn(kalman_dist_est, disturbance_function)
+
+plt.plot(thetas, disturbance_function)
 plt.scatter(x_values, kalman_dist_est)
 plt.show()
