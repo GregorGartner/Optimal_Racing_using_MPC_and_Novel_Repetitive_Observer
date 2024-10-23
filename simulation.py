@@ -497,7 +497,7 @@ if __name__ == "__main__":
 
 
     ### --- Initializing the Simulation --- ###
-    steps = 100
+    steps = 159
     prev_state = np.array([0, -1.05, 0, 3, 0, 0, 0, 0, 0])
     traj_guess = np.zeros((steps+1, 9))
     traj = np.zeros((steps+1, 9))
@@ -556,7 +556,7 @@ if __name__ == "__main__":
         
     print("--- Plotting initial guess for solver ---")
     plot_trajectory(traj_guess, 1)
-    animate_trajectory(traj_guess, tail_length=3, dt=dt)
+    animate_trajectory(traj_guess, tail_length=7, dt=dt)
     input("Press Enter to continue...")
 
 
