@@ -1,5 +1,6 @@
 # Description of configuration files can be found at "https://gitlab.ethz.ch/ics-group/projects/andrea/crs-2.0/-/wikis/ros-configuration"
 track:
+  width_of_track: 0.46
   xCoords:
   - -0.7499999999999999
   - -0.7466666666666666

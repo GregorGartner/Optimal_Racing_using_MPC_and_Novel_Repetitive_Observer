@@ -15,14 +15,13 @@ def plot_trajectory(traj, final_traj):
 
     # PLotting the trajectory
     plt.scatter(x, y)
-    #plt.show()
     if final_traj == 0:
         plt.pause(5)
     else:
         plt.show()
 
 # animate trajectory as video
-def animate_trajectory(traj, tail_length=3, dt=0.1):
+def animate_trajectory(traj, tail_length=2, dt=0.1):
     """
     Animate a car trajectory with a dark blue current point and a light blue tail.
 
@@ -232,8 +231,6 @@ def plot_track(ax = None):
 
 
 
-
-
 class CarModel():
     def __init__(self, lr, lf, m, I, Df, Cf, Bf, Dr, Cr, Br, Cm1, Cm2, Cd, Croll):
         # initializing car parameters
@@ -265,17 +262,19 @@ class CarModel():
 
         Fx = (self.Cm1 - self.Cm2 * v_x) * acc - \
             self.Cd * v_x * v_x - self.Croll
+        
         # Logans Implementation
-        beta = ca.arctan(v_y / v_x)
-        alpha_f = delta - beta - self.lf * omega / v_x
-        alpha_r = -beta + self.lr * omega / v_x
-        Ff = self.Df * ca.sin(self.Cf * ca.arctan(self.Bf * alpha_f))
-        Fr = self.Dr * ca.sin(self.Cr * ca.arctan(self.Br * alpha_r))
+        # beta = ca.arctan(v_y / v_x)
+        # alpha_f = delta - beta - self.lf * omega / v_x
+        # alpha_r = -beta + self.lr * omega / v_x
+        # Ff = self.Df * ca.sin(self.Cf * ca.arctan(self.Bf * alpha_f))
+        # Fr = self.Dr * ca.sin(self.Cr * ca.arctan(self.Br * alpha_r))
+
         # # Following the paper
-        # alpha_f = ca.arctan((v_y + omega * lf) / v_x) + delta
-        # alpha_r = ca.arctan((v_y - omega * lr) / v_x)
-        # Fr = Dr * ca.sin(Cr * ca.arctan(Br * alpha_r))
-        # Ff = Df * ca.sin(Cf * ca.arctan(Bf * alpha_f))
+        alpha_f = - ca.arctan((omega * self.lf + v_y) / v_x) + delta
+        alpha_r = ca.arctan((omega * self.lr - v_y) / v_x)
+        Fr = self.Dr * ca.sin(self.Cr * ca.arctan(self.Br * alpha_r))
+        Ff = self.Df * ca.sin(self.Cf * ca.arctan(self.Bf * alpha_f))
 
         # returning the differential equations governing the car dynamics
         if numerical:
@@ -286,9 +285,9 @@ class CarModel():
                 1 / self.m * (Fx - Ff * np.sin(delta) + self.m * v_y * omega),
                 1 / self.m * (Fr + Ff * np.cos(delta) - self.m * v_x * omega),
                 1 / self.I * (Ff * self.lf * np.cos(delta) - Fr * self.lr),
-                0,
-                0,
-                0
+                u[0],
+                u[1],
+                u[2]
             ])
         else:
             return ca.vertcat(
@@ -298,9 +297,9 @@ class CarModel():
                 1 / self.m * (Fx - Ff * ca.sin(delta) + self.m * v_y * omega),
                 1 / self.m * (Fr + Ff * ca.cos(delta) - self.m * v_x * omega),
                 1 / self.I * (Ff * self.lf * ca.cos(delta) - Fr * self.lr),
-                0,
-                0,
-                0
+                u[0],
+                u[1],
+                u[2]
             )
 
     # integrator
@@ -313,9 +312,9 @@ class CarModel():
 
         # calculates weighted average of 4 different approximations
         out = dt / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
-        out[6] = dt * u[0]
-        out[7] = dt * u[1]
-        out[8] = dt * u[2]
+        # x[6] = dt * u[0]
+        # x[7] = dt * u[1]
+        # x[8] = dt * u[2]
         return out
 
 
@@ -337,7 +336,8 @@ class MPC():
         state_min = [-20.0, -20.0, -1000.0, 0.0, -2.0, -4.0, 0.0, -0.4, 0.0]
         state_max = [20.0, 20.0, 1000.0, 3.5, 2.0, 4.0, 0.7, 0.4, 1000.0]
         input_min = [-2.0, -15.0, 0.0]
-        input_max = [2.0, 15.0, 5.0]
+        input_max = [2.0, 15.0, 3.5]
+
 
         # symbolic state variables
         states = ca.MX.sym('s', 9, N + 1)
@@ -417,7 +417,7 @@ class MPC():
 
         # initial state ns, dynamics N*ns, track limits N
         h_min = np.concatenate((np.zeros(ns), np.zeros(N*ns), np.zeros(N)))
-        h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.5 * 0.5 * np.ones(N))) # 0.23 * 0.23
+        h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.23 * 0.23 * np.ones(N))) # 0.23 * 0.23
 
         x_min = np.concatenate(
             (np.tile(state_min, N + 1), np.tile(input_min, N)))
@@ -430,16 +430,15 @@ class MPC():
         print("Compiling IPOPT solver...")
         t0 = perf_counter()
         IP_nlp = {'x': x, 'f': objective, 'p': parameters, 'g': constraints}
-        IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp, {'ipopt': {'linear_solver': 'mumps' , 'max_iter': 1000}}) #'linear_solver': 'ma57'
+        IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp, {'ipopt': {'linear_solver': 'mumps' , 'max_iter': 100}}) #'linear_solver': 'ma57'
                               
         t1 = perf_counter()
         print("Finished compiling IPOPT solver in " + str(t1 - t0) + " seconds!")
-        input("Press Enter to continue...")
 
         return IP_solver, x_min, x_max, h_min, h_max
 
-    # solve MPC optimization problem
 
+    # solve MPC optimization problem
     def mpc_controller(self, IP_solver, x_min, x_max, h_min, h_max, initial_guess, parameters, N, ns, nu):
         sol = IP_solver(x0=initial_guess, p=parameters,
                         lbx=x_min, ubx=x_max, lbg=h_min, ubg=h_max)
@@ -448,8 +447,12 @@ class MPC():
 
         # Extract the solution and separate states and inputs
         sol_x = sol['x'].full().flatten()
-        opt_states = sol_x[0:ns*(N+1)].reshape((ns, N+1))
-        opt_inputs = sol_x[ns*(N+1):].reshape((nu, N))
+        opt_states = sol_x[0:ns*(N+1)].reshape((N+1, ns))
+        opt_inputs = sol_x[ns*(N+1):].reshape((N, nu))
+
+        if IP_solver.stats()['return_status'] != 'Solve_Succeeded':
+            print("---------------------------------" + IP_solver.stats()['return_status'] + "---------------------------------")
+            #plot_trajectory(opt_states, 1)
 
         return opt_states, opt_inputs
 
@@ -480,84 +483,92 @@ if __name__ == "__main__":
     ### --- Initializing the MPC --- ###
     # weights for the cost function
     Q1 = 1.5 # contouring cost
-    Q2 = 15.0  # lag cost
+    Q2 = 12.0  # lag cost
     R1 = 1.0  # cost for change of acceleration
     R2 = 1.0  # cost for change of steering angle
-    R3 = 1.0  # cost for deviation of progress speed dtheta to target progress speed
+    R3 = 1.3  # cost for deviation of progress speed dtheta to target progress speed
     target_speed = 3.6  # target speed of progress theta
 
     # problem parameters
     dt = 1/30  # step size
-    N = 30  # horizon length of MPC
+    N = 80  # horizon length of MPC
     ns = 9  # number of states
     nu = 3  # number of inputs
     controller = MPC(Q1, Q2, R1, R2, R3, target_speed, N, car, dt)
 
 
-
-
     ### --- Initializing the Simulation --- ###
-    steps = 159
-    prev_state = np.array([0, -1.05, 0, 3, 0, 0, 0, 0, 0])
-    traj_guess = np.zeros((steps+1, 9))
-    traj = np.zeros((steps+1, 9))
+    steps = 250
+    prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0])
+    traj_guess = np.zeros((N+1, 9))
+    traj_spline = np.zeros((N+1, 2))
+    traj = np.zeros((steps, 9))
     traj_guess[0] = prev_state
-    inputs_guess = np.zeros((steps, 3))
+    traj_spline[0] = [0.48106088, -1.05]
+    inputs_guess = np.zeros((N, 3))
     initial_guess = np.zeros(((N + 1) * ns + N * nu)) # takes traj and input guess up to MPC horizon
     # initial_guess = get_initial_guess(N, ns, nu)
     # prev_state = initial_guess[0:ns]
 
+    x_spline, y_spline, dy_spline, dx_spline = get_demo_track_spline()
 
     # manual (hard coded) control
-    for i in range(steps):
-        if i < 7:
-            u = np.array([0, 0, 0])
-        elif i < 12:
-            u = np.array([0.5, 4, 0])
-        elif i < 17:
-            u = np.array([2.7, 0, 0])
-        elif i < 22:
-            u = np.array([0, -4, 0])
-        elif i < 32:
-            u = np.array([-0.5, 0, 0])
-        elif i < 37: 
-            u = np.array([-0.1, 4.3, 0])
-        elif i < 59:
-            u = np.array([0.1, 0, 0])
-        elif i < 68:
-            u = np.array([0.3, -3.5, 0])
-        elif i < 91:
-            u = np.array([0, 0, 0])
-        elif i < 96:
-            u = np.array([-0.1, 4.5, 0])
-        elif i < 117:
-            u = np.array([0, 0, 0])
-        elif i < 120:
-            u = np.array([-0.1, -4.3, 0])
-        elif i < 128:
-            u = np.array([-0.3, 0, 0])
-        elif i < 135:
-            u = np.array([0, 4.5, 0])
-        elif i < 142:
-            u = np.array([1, 0, 0])
-        elif i < 148:
-            u = np.array([0, -5.1, 0])
-        elif i < 160:
-            u = np.array([0, 0, 0])
-            
-
-            
+    for i in range(N):
+        if i < 15-N:
+            u = np.array([0.8, 0, 0])
+        elif i < 37-N:
+            u = np.array([0.0, 0.0, 0])
+        elif i < 43-N:
+            u = np.array([0.0, 1.0, 0])
+        elif i < 51-N:
+            u = np.array([-0.05, 0.0, 0])
+        elif i < 56-N: 
+            u = np.array([0.0, -1.0, 0])
+        elif i < 64-N:
+            u = np.array([0.0, 0, 0])
+        elif i < 80-N:
+            u = np.array([0.0, 1.1, 0])
+        else:
+            u = np.array([0.0, 0.0, 0.0])
 
         new_state = prev_state + car.state_update_rk4(prev_state, u, dt, True)
+
+
+        # Define the optimization variable theta
+        theta = ca.MX.sym('theta')
+        # Define the point on the spline for a given theta
+        spline_point = [x_spline(theta), y_spline(theta)]
+        # Define the distance function
+        distance = ca.sqrt((spline_point[0] - new_state[0])**2 + (spline_point[1] - new_state[1])**2)
+        # Create an NLP solver to minimize the distance
+        nlp = {'x': theta, 'f': distance}
+        solver = ca.nlpsol('solver', 'ipopt', nlp)
+        # Solve the NLP to find the optimal theta
+        sol = solver(x0=0.5, lbx=0, ubx=8)  # Initial guess and bounds for theta
+        # Get the optimal theta
+        theta_opt = sol['x'].full().flatten()[0]
+        # update progress parameter theta according to current position
+        new_state[8] = theta_opt
+
+        traj_spline[i+1] = np.array([x_spline(theta_opt), y_spline(theta_opt)]).flatten()
+
         traj_guess[i+1] = new_state
         inputs_guess[i] = u
 
         prev_state = new_state
+
+
         
-    print("--- Plotting initial guess for solver ---")
-    plot_trajectory(traj_guess, 1)
-    animate_trajectory(traj_guess, tail_length=7, dt=dt)
-    input("Press Enter to continue...")
+    #print("--- Plotting initial guess for solver ---")
+    #plot_trajectory(traj_guess, 1)
+    #plot_trajectory(traj_spline, 1)
+    #animate_trajectory(traj_guess, tail_length=7, dt=dt)
+    #input("Press Enter to continue...")
+
+
+
+
+
 
 
     #######################################################################################
@@ -568,37 +579,43 @@ if __name__ == "__main__":
 
     IP_solver, x_min, x_max, h_min, h_max = controller.get_ip_solver(
         N, dt, ns, nu)
+    input("Press Enter to continue...")
 
-    prev_state = np.array([0, -1.05, 0, 1, 0, 0, 0, 0, 0])
-    initial_guess[0:(N+1)*ns] = traj_guess[:(N+1), :].flatten()
-    initial_guess[(N+1)*ns:] = inputs_guess[:N, :].flatten()
+    prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0.37])
+    # prev_state = np.array([0, -1.05, 0, 0.1, 0, 0, 0, 0, 0])
+    #initial_guess[0:(N+1)*ns] = traj_guess[:(N+1), :].flatten()
+    #initial_guess[(N+1)*ns:] = inputs_guess[:N, :].flatten()
+    initial_guess = ca.veccat(traj_guess.flatten(), inputs_guess.flatten())
+
     
-    # calculating trajectory
-    for i in range(steps-11):
+    # # calculating trajectory
+    for i in range(steps):
         # parameters = np.concatenate((track, prev_state))
         parameters = prev_state
-        # initial_guess[0:(N+1)*ns] = traj_guess[i:(N+1+i), :].flatten()
-        # initial_guess[(N+1)*ns:] = inputs_guess[i:(N+i), :].flatten()
+        #initial_guess[0:(N+1)*ns] = traj_guess[i:(N+1+i), :].flatten()
+        #initial_guess[(N+1)*ns:] = inputs_guess[i:(N+i), :].flatten()
         opt_states, opt_inputs = controller.mpc_controller(IP_solver, x_min, x_max, h_min, h_max, initial_guess, parameters, N, ns, nu)
 
         # calculating next state
-        u0 = opt_inputs[:, 0]
+        u0 = opt_inputs[0, :]
         new_state = prev_state + car.state_update_rk4(prev_state, u0, dt, True)
         prev_state = new_state
         traj[i] = new_state
 
-        # updating initial guess
-        uN = opt_inputs[:, -1]
-        initial_guess[: N*ns] = opt_states[:, 1:].flatten()
-        initial_guess[N*ns: (N+1)*ns] = opt_states[:, -1] + \
-            car.state_update_rk4(opt_states[:, -1], uN, dt, True)
-        initial_guess[(N+1)*ns: (N+1)*ns+(N-1)
-                      * nu] = opt_inputs[:, 1:].flatten()
-        initial_guess[(N + 1) * ns + (N-1)
-                      * nu:] = opt_inputs[:, -1]
-
         print("Step: ", i)
-        input("Press Enter to continue...")
+        #input("Press Enter to continue...")
+
+        # updating initial guess
+        uN = opt_inputs[-1, :]
+        initial_guess[: N*ns] = opt_states[1:, :].flatten()
+        initial_guess[N*ns: (N+1)*ns] = opt_states[-1, :] + car.state_update_rk4(opt_states[-1, :], uN, dt, True)
+        initial_guess[(N+1)*ns: (N+1)*ns+(N-1) * nu] = opt_inputs[1:, :].flatten()
+        initial_guess[(N + 1) * ns + (N-1)* nu:] = uN
+        
+
+        # plot open-loop prediction
+        #plot_trajectory(opt_states, 1)
+        # input("Press Enter to continue...")
     #######################################################################################
     #######################################################################################
     #######################################################################################
@@ -606,4 +623,4 @@ if __name__ == "__main__":
 
             
     plot_trajectory(traj, 1)
-    animate_trajectory(traj, tail_length=15, dt=dt)
+    animate_trajectory(traj, tail_length=5, dt=dt)

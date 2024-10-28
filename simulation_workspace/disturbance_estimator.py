@@ -24,7 +24,8 @@ def find_interpolation_points(thetas, theta):
 
 
 # Defining the disturbance_function function
-thetas = np.linspace(0, 25, 1000)
+thetas = np.linspace(0, 24, 1000)
+thetas = thetas[:-1]
 disturbance_function = 1.5 * np.sin(thetas/1.5) + 1/3 * \
     thetas - 1/20 * (thetas - 10) ** 2
 
@@ -50,7 +51,7 @@ plt.show()
 
 
 def luenberger_observer(d_est_vec, disturbance_function):
-    for i in range(100000):
+    for i in range(1000):
         # generate random function argument (theta)
         random_index = random.randint(0, 999)
         random_arg = (random_index / 999) * 25
@@ -104,7 +105,7 @@ def kalman_filter_lin(kalman_dist_est, disturbance_function):
     P = 1 # initial state variance
     R = 0.3 # measurement noise variance
 
-    for i in range(100000):
+    for i in range(75):
         # generate random function argument (theta)
         random_index = random.randint(0, 999)
         random_arg = (random_index / 1000) * 24
@@ -130,21 +131,21 @@ def kalman_filter_lin(kalman_dist_est, disturbance_function):
     return kalman_dist_est, x_values
 
 
-#kalman_dist_est, x_values = kalman_filter_lin(kalman_dist_est, disturbance_function)
+# kalman_dist_est, x_values = kalman_filter_lin(kalman_dist_est, disturbance_function)
 
+progress = np.zeros((3, len(thetas)))
 
-
-def kalman_filter_polyn(kalman_dist_est, disturbance_function):
+def kalman_filter_polyn(kalman_dist_est, disturbance_function, progress):
     P = 1 # initial state variance
     R = 0.3 # measurement noise variance
 
-    for i in range(10000):
+    for i in range(1000):
         # generate random function argument (theta)
-        random_index = random.randint(0, 999)
+        random_index = random.randint(0, 998)
         random_arg = (random_index / 1000) * 24
 
         # "measured" disturbance_function
-        noise = np.random.normal(0, 0.2)
+        noise = np.random.normal(0, 0.3)
         d_mes = disturbance_function[random_index] + noise
 
         # measurement matrix with shape of state vector (inner product is scalar)
@@ -174,14 +175,43 @@ def kalman_filter_polyn(kalman_dist_est, disturbance_function):
 
         x_values = np.arange(len(kalman_dist_est))
 
-    return kalman_dist_est, x_values
+        if (i+1)%333 == 0:
+            for index, theta in enumerate(thetas):
+                H_k = np.zeros(kalman_dist_est.shape)
+
+                idx1 = floor(theta)
+                if idx1 == 0:
+                    idx1 = 1
+                elif idx1 == 23:
+                    idx1 = 22
+                idx0 = idx1 - 1
+                idx2 = idx1 + 1
+                idx3 = idx1 + 2
+
+                H_k[idx0] = (theta - idx1) * (theta - idx2) * (theta - idx3) / \
+                    ((idx0 - idx1) * (idx0 - idx2) * (idx0 - idx3))
+                H_k[idx1] = (theta - idx0) * (theta - idx2) * (theta - idx3) / \
+                    ((idx1 - idx0) * (idx1 - idx2) * (idx1 - idx3))
+                H_k[idx2] = (theta - idx0) * (theta - idx1) * (theta - idx3) / \
+                    ((idx2 - idx0) * (idx2 - idx1) * (idx2 - idx3))
+                H_k[idx3] = (theta - idx0) * (theta - idx1) * (theta - idx2) / \
+                    ((idx3 - idx0) * (idx3 - idx1) * (idx3 - idx2))
+                
+                disturbance_value_theta =  H_k @ kalman_dist_est
+
+                progress[((i+1)//333) - 1, index] = disturbance_value_theta
+
+    return kalman_dist_est, x_values, progress
 
 
 
 
     
-kalman_dist_est, x_values = kalman_filter_polyn(kalman_dist_est, disturbance_function)
+kalman_dist_est, x_values, progress = kalman_filter_polyn(kalman_dist_est, disturbance_function, progress)
 
-plt.plot(thetas, disturbance_function)
-plt.scatter(x_values, kalman_dist_est)
+plt.plot(thetas, disturbance_function, linewidth=3, color='blue', label='Disturbance Function')
+#plt.scatter(x_values, kalman_dist_est)
+plt.plot(thetas, progress[0], linewidth=2, color='red', label='Progress 0')
+plt.plot(thetas, progress[1], linewidth=2, color='green', label='Progress 1')
+plt.plot(thetas, progress[2], linewidth=2, color='orange', label='Progress 2')
 plt.show()
