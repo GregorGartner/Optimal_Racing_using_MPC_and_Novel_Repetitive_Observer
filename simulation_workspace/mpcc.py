@@ -47,7 +47,7 @@ class MPC():
         x0 = ca.MX.sym('x0', ns)
 
         # get track spline for track constraints
-        x_spline, y_spline, dy_spline, dx_spline = get_demo_track_spline()
+        x_spline, y_spline, dy_spline, dx_spline, _ = get_demo_track_spline()
 
         # defining objective
         objective = 0

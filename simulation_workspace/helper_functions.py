@@ -119,7 +119,7 @@ def get_demo_track_spline():
     dy_exp = dy_spline(ca.fmod(t_sym + 0.5 * trackLength, trackLength))
     dy_fun = ca.Function('f', [t_sym], [dy_exp])
 
-    return x_fun, y_fun, dx_fun, dy_fun
+    return x_fun, y_fun, dx_fun, dy_fun, trackLength
 
 
 
