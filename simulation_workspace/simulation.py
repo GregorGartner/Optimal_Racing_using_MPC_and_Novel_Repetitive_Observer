@@ -4,7 +4,7 @@ from mpcc import MPC
 from car_model import CarModel
 from helper_functions import plot_trajectory, animate_trajectory, get_demo_track_spline, \
     get_initial_guess, plot_track_spline, plot_track, track_pos
-from kalman_filters import KalmanFilterLinear, KalmanFilterPolynomial, KalmanFilterSpline
+from kalman_filters import KalmanFilterLinear, KalmanFilterPolynomial, KalmanFilterSpline, KalmanFilterLinearSpline
 import matplotlib.pyplot as plt
 
 
@@ -53,7 +53,7 @@ controller = MPC(Q1, Q2, R1, R2, R3, target_speed, N, car, dt)
 
 
 ### --- Initializing the Simulation --- ###
-steps = 650
+steps = 500
 prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0])
 traj_guess = np.zeros((N+1, 9))
 traj_spline = np.zeros((N+1, 2))
@@ -128,7 +128,7 @@ for i in range(N):
 
 IP_solver, x_min, x_max, h_min, h_max = controller.get_ip_solver(
     N, dt, ns, nu)
-input("Press Enter to continue...")
+# input("Press Enter to continue...")
 
 prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0.37])
 initial_guess = ca.veccat(traj_guess.flatten(), inputs_guess.flatten())
@@ -151,8 +151,9 @@ for i in range(steps):
 
     disturbance_vector = estimator.estimate(prev_state, u0, new_state, dt)
 
-    #if i%200 == 0 and i > 0:
-    #    disturbance_matrix[(int(i/200))-1, :] = disturbance_vector
+    # if i == 199:
+    #     plt.plot(disturbance_vector, color='green')
+    #     plt.show()
 
     # updating the "new" previous state and the actual trajectory
     prev_state = new_state
@@ -178,8 +179,8 @@ for i in range(steps):
 # plotting the disturbance estimation over different laps
 # plt.plot(disturbance_matrix[0], color='blue')
 # plt.plot(disturbance_matrix[1], color='red')
-# plt.plot(disturbance_matrix[2], color='green')
-# plt.show()
+plt.plot(disturbance_vector, color='green')
+plt.show()
 
 # plotting true mismatch vs estimated mismatch
 thetas = np.linspace(0, 11.568244517641709, 1000)
