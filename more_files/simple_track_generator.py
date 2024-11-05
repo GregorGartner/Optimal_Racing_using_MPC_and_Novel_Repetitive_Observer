@@ -323,7 +323,7 @@ def main():
     track_density = 300
     track_width = 0.5
     gen = trackGenerator(track_density, track_width)
-    track_name = "DEMO_TRACK"
+    track_name = "LONG_TRACK"
 
     t = 0.3
     init = [0, 0, 0]

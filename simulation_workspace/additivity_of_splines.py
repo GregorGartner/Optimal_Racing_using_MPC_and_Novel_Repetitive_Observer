@@ -28,15 +28,15 @@ spline_points3 = np.array([bspline3(t).full().flatten() for t in t_values])
 
 
 # Plot the B-spline and its components
-fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+fig, axs = plt.subplots(2, 2, figsize=(9, 6))
 
 # Define common limits for all subplots
 y_min = min(np.min(5 * spline_points2), np.min(2 * spline_points1), np.min(2 * spline_points1 + 5 * spline_points2), np.min(spline_points3))
 y_max = max(np.max(5 * spline_points2), np.max(2 * spline_points1), np.max(2 * spline_points1 + 5 * spline_points2), np.max(spline_points3))
 
 # First subplot
-axs[0, 0].plot(t_values, 5 * spline_points2, '-', label='5 * B-spline Curve 2')
-axs[0, 0].set_title('5 * B-spline Curve 2')
+axs[0, 0].plot(t_values, spline_points1, '-', label='Spline1 with d[3] = 1.0')
+axs[0, 0].set_title('Spline1 with d[3] = 1.0')
 axs[0, 0].set_xlabel('X')
 axs[0, 0].set_ylabel('Y')
 axs[0, 0].legend()
@@ -44,8 +44,8 @@ axs[0, 0].grid()
 axs[0, 0].set_ylim([y_min, y_max])
 
 # Second subplot
-axs[0, 1].plot(t_values, 2 * spline_points1, '-', label='2 * B-spline Curve 1')
-axs[0, 1].set_title('2 * B-spline Curve 1')
+axs[0, 1].plot(t_values, spline_points2, '-', label='Spline2 with d[7] = 1.0')
+axs[0, 1].set_title('Spline2 with d[7] = 1.0')
 axs[0, 1].set_xlabel('X')
 axs[0, 1].set_ylabel('Y')
 axs[0, 1].legend()
@@ -53,8 +53,8 @@ axs[0, 1].grid()
 axs[0, 1].set_ylim([y_min, y_max])
 
 # Third subplot
-axs[1, 0].plot(t_values, 2 * spline_points1 + 5 * spline_points2, '-', label='2 * B-spline Curve 1 + 5 * B-spline Curve 2')
-axs[1, 0].set_title('2 * B-spline Curve 1 + 5 * B-spline Curve 2')
+axs[1, 0].plot(t_values, 2 * spline_points1 + 5 * spline_points2, '-', label='2 * Spline1 + 5 * Spline2')
+axs[1, 0].set_title('2 * Spline1 + 5 * Spline2')
 axs[1, 0].set_xlabel('X')
 axs[1, 0].set_ylabel('Y')
 axs[1, 0].legend()
@@ -62,7 +62,7 @@ axs[1, 0].grid()
 axs[1, 0].set_ylim([y_min, y_max])
 
 # Fourth subplot
-axs[1, 1].plot(t_values, spline_points3, '-', label='B-spline Curve 3')
+axs[1, 1].plot(t_values, spline_points3, '-', label='Spline3 with d[7] = 2.0 and d[3] = 5.0')
 axs[1, 1].set_title('B-spline Curve 3')
 axs[1, 1].set_xlabel('X')
 axs[1, 1].set_ylabel('Y')

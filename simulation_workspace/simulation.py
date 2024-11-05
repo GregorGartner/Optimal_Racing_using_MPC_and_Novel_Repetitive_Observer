@@ -3,15 +3,13 @@ import numpy as np
 from mpcc import MPC
 from car_model import CarModel
 from helper_functions import plot_trajectory, animate_trajectory, get_demo_track_spline, \
-    get_initial_guess, plot_track_spline, plot_track, track_pos
+    get_initial_guess, plot_track_spline, plot_track, track_pos, plot_track1
 from kalman_filters import KalmanFilterLinear, KalmanFilterPolynomial, KalmanFilterSpline, KalmanFilterLinearSpline
 import matplotlib.pyplot as plt
 
 
-
-
-
-
+#plot_track1()
+#plt.show()
 
 
 ### --- Initializing the car model --- ###
@@ -53,18 +51,19 @@ controller = MPC(Q1, Q2, R1, R2, R3, target_speed, N, car, dt)
 
 
 ### --- Initializing the Simulation --- ###
-steps = 500
-prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0])
-traj_guess = np.zeros((N+1, 9))
-traj_spline = np.zeros((N+1, 2))
-traj = np.zeros((steps, 9))
-traj_guess[0] = prev_state
+steps = 620 # number of simulatoin steps
+prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0]) # initial state
+
+traj = np.zeros((steps, 9)) # array to save trajectory
+traj_guess = np.zeros((N+1, 9)) # calculated to warm-start the solver
+traj_guess[0] = prev_state # first state of initial guess for solver
+traj_spline = np.zeros((N+1, 2)) # unused array containing the closest points on center line over the trajectory
 traj_spline[0] = [0.48106088, -1.05]
-inputs_guess = np.zeros((N, 3))
-initial_guess = np.zeros(((N + 1) * ns + N * nu)) # takes traj and input guess up to MPC horizon
+inputs_guess = np.zeros((N, 3)) # inputs to warm-start the solver
+initial_guess = np.zeros(((N + 1) * ns + N * nu)) # concatenates traj and input guess up to MPC horizon
 
-
-x_spline, y_spline, dy_spline, dx_spline, tracklength = get_demo_track_spline()
+# get spline of track
+x_spline, y_spline, dx_spline, dy_spline, tracklength = get_demo_track_spline()
 
 # manual (hard coded) control
 for i in range(N):
@@ -126,41 +125,48 @@ for i in range(N):
 ########################## --- MPC controlled simulation --- ##########################
 #######################################################################################
 
+# creater solver based on MPCC problem
 IP_solver, x_min, x_max, h_min, h_max = controller.get_ip_solver(
     N, dt, ns, nu)
 # input("Press Enter to continue...")
 
+# initial state car and initial guess to warm-start the solver
 prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0.37])
 initial_guess = ca.veccat(traj_guess.flatten(), inputs_guess.flatten())
 
-disturbance_vector = np.zeros(47)
+# matrix to save progress of the disturance estimates
 disturbance_matrix = np.zeros((3, 47))
-period_factor = 4*np.pi/11.568244517641709
-estimator = KalmanFilterSpline(car, disturbance_vector, tracklength=tracklength, P=1, R=0.1)
+
+# factor to get integer multple of periods in one lap
+period_factor = 4*np.pi/tracklength
+
+# initialize Kalman filter
+estimator = KalmanFilterPolynomial(car, tracklength=tracklength, P=1, R=0.1)
 
 # calculating trajectory
 for i in range(steps):
     parameters = prev_state
     opt_states, opt_inputs = controller.mpc_controller(IP_solver, x_min, x_max, h_min, h_max, initial_guess, parameters, N, ns, nu)
 
-    # calculating next state
+    # calculating next state and retrieving next applied input
     u0 = opt_inputs[0, :]
     new_state = prev_state + car.state_update_rk4(prev_state, u0, dt, True)
-    # incorporating model mismatch
-    new_state[0] = new_state[0] - ca.cos(prev_state[8] * period_factor) * 0.02
 
+    # incorporating model mismatch
+    new_state[3] = new_state[3] - ca.cos(prev_state[8] * period_factor) * 0.02
+
+    # use Kalman filter for update of disturbance function estimate
     disturbance_vector = estimator.estimate(prev_state, u0, new_state, dt)
 
-    # if i == 199:
-    #     plt.plot(disturbance_vector, color='green')
-    #     plt.show()
+    # save current estimates every 199 steps (roughly one lap)
+    if i % 199 and i > 0:
+        disturbance_matrix[i//199 - 1] = disturbance_vector
 
     # updating the "new" previous state and the actual trajectory
     prev_state = new_state
     traj[i] = new_state
 
     print("Step: ", i)
-    #input("Press Enter to continue...")
 
     # updating initial guess
     uN = opt_inputs[-1, :]
@@ -170,20 +176,20 @@ for i in range(steps):
     initial_guess[(N + 1) * ns + (N-1)* nu:] = uN
     
     # plot open-loop prediction
-    #plot_trajectory(opt_states, 1)
+    # plot_trajectory(opt_states, 1)
     # input("Press Enter to continue...")
 #######################################################################################
 #######################################################################################
 #######################################################################################
 
 # plotting the disturbance estimation over different laps
-# plt.plot(disturbance_matrix[0], color='blue')
-# plt.plot(disturbance_matrix[1], color='red')
-plt.plot(disturbance_vector, color='green')
+plt.plot(disturbance_matrix[0], color='blue')
+plt.plot(disturbance_matrix[1], color='red')
+plt.plot(disturbance_matrix[2], color='green')
 plt.show()
 
 # plotting true mismatch vs estimated mismatch
-thetas = np.linspace(0, 11.568244517641709, 1000)
+thetas = np.linspace(0, tracklength, 1000)
 thetas = thetas[:-1]
 disturbance_function = - ca.cos(thetas * period_factor) * 0.02
 estimated_function = estimator.function(thetas)

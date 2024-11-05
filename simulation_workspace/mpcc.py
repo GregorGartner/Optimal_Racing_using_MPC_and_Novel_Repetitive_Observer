@@ -47,7 +47,7 @@ class MPC():
         x0 = ca.MX.sym('x0', ns)
 
         # get track spline for track constraints
-        x_spline, y_spline, dy_spline, dx_spline, _ = get_demo_track_spline()
+        x_spline, y_spline, dx_spline, dy_spline, _ = get_demo_track_spline()
 
         # defining objective
         objective = 0
@@ -101,7 +101,7 @@ class MPC():
         print("Compiling IPOPT solver...")
         t0 = perf_counter()
         IP_nlp = {'x': x, 'f': objective, 'p': parameters, 'g': constraints}
-        IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp, {'ipopt': {'linear_solver': 'mumps' , 'max_iter': 100}}) #'linear_solver': 'ma57'
+        IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp, {'ipopt': {'linear_solver': 'mumps' , 'max_iter': 100, 'print_level': 1,}}) #'linear_solver': 'ma57'
                               
         t1 = perf_counter()
         print("Finished compiling IPOPT solver in " + str(t1 - t0) + " seconds!")

@@ -153,10 +153,12 @@ def get_initial_guess(N, ns, nu):
 
 # creates plot of track spline w\o plt.show()
 def plot_track_spline(ax = None):
-    x_spline, y_spline, dy_spline, dx_spline = get_demo_track_spline()
+    x_spline, y_spline, dx_spline, dy_spline, trackLength = get_demo_track_spline()
+
+    range = ca.ceil(trackLength)
 
     # Generate parameter values for plotting
-    theta = np.linspace(0, 12, 100)  # 100 points from 0 to 4
+    theta = np.linspace(0, range, int(range * 100 / 12))  # 100 points from 0 to 4
 
     # Evaluate the spline functions
     x_vals = x_spline(theta)
@@ -254,3 +256,38 @@ def plot_track(ax = None):
 
     return ax
 
+
+
+# plotting track with center line and boundaries
+def plot_track1(ax = None):
+    x_spline, y_spline, dx_spline, dy_spline, tracklength = get_demo_track_spline()
+    track_N = 600
+    track_t = np.linspace(0, tracklength, track_N)
+
+    xtrack = np.zeros(track_N)
+    ytrack = np.zeros(track_N)
+    xrate = np.zeros(track_N)
+    yrate = np.zeros(track_N)
+
+    for ii in range(track_N):
+        t = track_t[ii]
+        xtrack[ii] = x_spline(t)
+        ytrack[ii] = y_spline(t)
+
+        xrate[ii] = dx_spline(t)
+        yrate[ii] = dy_spline(t)
+
+    half_track_width = 0.23
+
+    # plot the track and its boundaries
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    ax.plot(xtrack, ytrack, 'k--')
+    ax.plot(xtrack + half_track_width * yrate, ytrack - half_track_width * xrate, 'k')
+    ax.plot(xtrack - half_track_width * yrate, ytrack + half_track_width * xrate, 'k')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect(1)
+
+    return ax
