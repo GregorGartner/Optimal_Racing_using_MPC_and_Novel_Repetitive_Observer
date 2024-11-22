@@ -1,54 +1,74 @@
-import casadi as ca
 import numpy as np
+from helper_functions import plot_trajectory, plot_track, track_pos
 import matplotlib.pyplot as plt
-
-trackLength = 11.568244517641709
-discretization = 0.25
-
-def get_coeff_spline(trackLength, discretization):
-    wrap_length = trackLength / discretization
-    n_indices = int(ca.floor(trackLength / discretization))
-
-    # Example control points and knot vector
-    control_points = np.zeros(n_indices+1)
-    control_points[int(ca.floor(n_indices/2))] = 1.0
-    grid_points = np.linspace(-n_indices/2, n_indices/2, n_indices+1)
-
-    # Create the B-spline interpolant
-    x_spline = ca.interpolant('LUT', 'bspline', [grid_points], control_points, {'degree': [3]})
-
-    # Define the symbolic variable for the interpolation parameter
-    t_sym = ca.MX.sym('t')
-    # Use the modulo operation to wrap around the parameter values
-    x_exp = x_spline(ca.fmod(t_sym + int(ca.floor(n_indices/2)), wrap_length) - int(ca.floor(n_indices/2)))
-    # Create a CasADi function to evaluate the periodic B-spline
-    x_fun = ca.Function('f', [t_sym], [x_exp])
-
-    return x_fun
-
-coeff_spline = get_coeff_spline(trackLength, discretization)
-plot_points = np.linspace(0, 5, 1000)
+import casadi as ca
 
 
-def plot_spline(spline, plot_points):
-    # Evaluate the spline at the plot points
-    spline_values = np.array([spline(t) for t in plot_points]).flatten()
+# Define the mean and standard deviation
+mean = 0
+std_dev = 0.2
 
-    # Plot the spline
-    plt.plot(plot_points, spline_values, label='B-spline')
-    plt.xlabel('t')
-    plt.ylabel('Spline value')
-    plt.title('Periodic B-spline')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+# Generate x values
+x = np.linspace(-1.5, 1.5, 1000)
 
-plot_spline(coeff_spline, plot_points)
+# Calculate the Gaussian (normal) distribution
+gaussian = (1/(std_dev * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std_dev)**2)
+periodic = 0.01 * np.exp(-0.5 * (np.sin(x*np.pi)/0.4)**2)
 
-print(coeff_spline(0))
-print(coeff_spline(0.5))
-print(coeff_spline(1.5))
-print(coeff_spline(trackLength / discretization))
-print(coeff_spline(trackLength / discretization + 0.5))
-print(coeff_spline(trackLength / discretization - 0.5))
+# Plot the Gaussian
+plt.figure(figsize=(4.5, 2.5))
+#plt.plot(x, gaussian)
+plt.plot(x, periodic)
+plt.title('Periodic Kernel')
+plt.yticks([])
+plt.xticks([-1, 0, 1])
+plt.ylim(-0.0001, 0.015)
+#plt.grid(True)
+plt.show()
+
+
+# Define the interpolation points
+v = [0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+
+# Generate x values limited to -3 to 3
+x_limited = np.linspace(-1.2, 1.2, 1000)
+
+# Generate y values for linear interpolation
+y = np.interp(x_limited, np.linspace(-1, 1, len(v)), v)
+
+# Plot the linear interpolation
+plt.figure(figsize=(4.5, 2.5))
+plt.plot(x_limited, y)
+plt.title('Linear Interpolation')
+plt.yticks([])
+plt.ylim(-0.02, 1.5)  # Set y-axis limits to 0 to 2
+#plt.grid(True)
+plt.show()
+
+
+
+
+# Define control points for the B-spline
+control_points1 = np.zeros(11)
+#control_points1[5] = 1.0
+control_points1 = np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+grid_points = np.array([-1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75])
+                        
+
+# Define the B-spline interpolants
+bspline1 = ca.interpolant('bspline1', 'bspline', [grid_points], control_points1)
+
+# Generate points along the spline to evaluate and plot
+t_values = np.linspace(-1.25, 1.25, 200)  # Parameter values
+spline_points1 = np.array([bspline1(t).full().flatten() for t in t_values])
+# Plot the B-spline
+plt.figure(figsize=(4.5, 2.5))
+plt.plot(t_values, spline_points1)
+plt.yticks([])
+plt.ylim(-0.2, 1.5)
+plt.title('B-Spline Interpolation')
+#plt.ylim(-0.02, 2)  # Set y-axis limits to 0 to 2
+#plt.grid(True)
+plt.show()
+
 

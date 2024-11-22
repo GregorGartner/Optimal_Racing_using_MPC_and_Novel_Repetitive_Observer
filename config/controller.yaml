@@ -1,0 +1,64 @@
+state_type: pacejka_car
+input_type: pacejka_car
+
+controller_type: MPCC_ZOGPMPC
+# controller_type: MPCC_IPOPT
+max_rate: 30
+control_delay: 0.00
+
+
+load_gp: true
+load_data: false
+cautious_gp: false
+inducing_gp: false
+record_data: true
+num_rti_iter: 1
+experiment_name: unconditioned
+
+controller_params:
+  # Q1: 180.0 # contouring cost
+  # Q2: 160.0 # lag cost
+  # R1: 0.1 # dtorque cost
+  # R2: 0.3 # dsteer cost
+  # R3: 0.2 # darclength cost
+  # q: 3.3 # large value rewards progress
+  Q1: 10 # 50.0
+  Q2: 1000
+  R1: 0.1
+  R2: 0.3
+  R3: 0.2
+  q: 3.5 # 2.5
+  lag_compensation_time: 0.008 #0.02
+  solver_type: ACADOS
+
+  Sigma_x0: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6]
+  Sigma_W: [0.00010438, 0.00010419, 0.00010553]
+
+
+# Visualization parameters for mpc visualizer
+visualizer:
+  type: mpc
+  rate: 10
+
+  # Visualizer specific  parameters
+  frame_id: crs_frame # default
+  namespace: mpc # default
+
+  use_arrows: true # If true, use arrows to visualize planned and reference yaw angle. This option is a lot slower and may introduce visual lags
+
+  min_velocity: 0.5 # Min velocity for visualization (this or below gets mapped to blue)
+  max_velocity: 2.0 # Max velocity for visualization (this or above gets mapped to red)
+
+  planned:
+    size_x: 0.03 # 0.07 for arrows
+    size_y: 0.03 # 0.02 for arrows
+    size_z: 0.03 # 0.02 for arrows
+
+  reference:
+    r: 1
+    g: 0
+    b: 0
+    a: 1
+    size_x: 0.03 # 0.07 for arrows
+    size_y: 0.03 # 0.02 for arrows
+    size_z: 0.03 # 0.02 for arrows

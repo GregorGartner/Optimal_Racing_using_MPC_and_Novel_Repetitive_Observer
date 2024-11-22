@@ -1,0 +1,77 @@
+
+# ============ THIS IS THE GROUND TRUTH MODEL FOR SIMULATION ============
+# If using ros, paramaters located at /model
+
+# type describes what type of model we want to use / should be loaded
+type: "pacejka_discrete"
+
+# Q (process noise covariance matrix)
+Q:
+  value:
+    [
+      [0.00001, 0, 0, 0, 0, 0],
+      [0, 0.00001, 0, 0, 0, 0],
+      [0, 0, 0.00001, 0, 0, 0],
+      [0, 0, 0, 0.00001, 0, 0],
+      [0, 0, 0, 0, 0.00001, 0],
+      [0, 0, 0, 0, 0, 0.00001],
+    ]
+
+  is_diag: false
+
+model_params:
+  # size params
+  lr: 0.038
+  lf: 0.052
+  m: 0.181
+  I: 0.000505
+
+  wheel_radius: 0.0175
+  car_width: 0.12
+
+  # lateral force params
+  Df: 0.65
+  Cf: 1.5
+  Bf: 5.2
+  Dr: 1.0
+  Cr: 1.45
+  Br: 8.5
+
+  # longitudinal force params
+  Cm1: 0.98028992
+  Cm2: 0.01814131
+  Cd0: 0.085180520
+  Cd1: 0.10
+  Cd2: 0.02750696
+  eps: 0.2
+  # gamma: 0.5
+  gamma: 0.5
+
+  tau: 0.1 # to make this compatible with kinematic model
+
+
+# model_params:
+#   # size params
+#   lr: 0.03815
+#   lf: 0.078836
+#   m: 0.242
+#   I: 0.0016637
+
+#   wheel_radius: 0.0175
+#   car_width: 0.12
+
+#   # lateral force params
+#   Df: 0.6408
+#   Cf: 1.507
+#   Bf: 5.2
+#   Dr: 0.9675
+#   Cr: 1.44424
+#   Br: 8.5
+
+#   # longitudinal force params
+#   Cm1: 0.977767
+#   Cm2: 0.017807
+#   Cd: 0.0612451
+#   Croll: 0.1409
+
+#   tau: 0.1 # to make this compatible with kinematic model

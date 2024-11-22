@@ -80,19 +80,3 @@ class CarModel():
 
         return out
     
-
-    # calculating one step of discrete dynamics using Runge-Kutta 4th order integration
-    def state_update_rk4_mismatch(self, x, u, dt, numerical=False):
-        # Runge-Kutta 4th order integration
-        k1 = self.dynamics(x, u, numerical)
-        k2 = self.dynamics(x + dt / 2.0 * k1, u, numerical)
-        k3 = self.dynamics(x + dt / 2.0 * k2, u, numerical)
-        k4 = self.dynamics(x + dt * k3, u, numerical)
-
-        # calculates weighted average of 4 different approximations
-        out = dt / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
-
-        out[0] = out[0] - ca.cos(x[8]/2) * 0.008
-
-
-        return out

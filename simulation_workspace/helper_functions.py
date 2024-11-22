@@ -4,20 +4,31 @@ import yaml
 from track_object import Track
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib import cm
 
 
 
 
 
-# plot trajectory
 def plot_trajectory(traj, final_traj):
+    # Plot the track (assuming plot_track is defined elsewhere)
     ax = plot_track()
     
     x = traj[:, 0]
     y = traj[:, 1]
 
-    # PLotting the trajectory
-    plt.scatter(x, y)
+    # Normalize the trajectory index for colormap
+    num_points = len(x)
+    norm = plt.Normalize(vmin=0, vmax=num_points-1)
+    cmap = cm.viridis  # You can change this to any other colormap
+
+    # Plotting the trajectory with gradient color scheme
+    scatter = plt.scatter(x, y, c=np.arange(num_points), cmap=cmap, norm=norm, s=15)
+    
+    # Adding colorbar and associating it with the scatter plot
+    plt.colorbar(scatter, label="Progression (Time)")
+    
+    # Display options
     if final_traj == 0:
         plt.pause(5)
     else:
@@ -291,3 +302,19 @@ def plot_track1(ax = None):
     ax.set_aspect(1)
 
     return ax
+
+
+
+def plot_all_states(traj, next_pred):
+    # plot trajectories of all state components separately
+    fig, axs = plt.subplots(3, 2, figsize=(10, 7))
+    titles = ["x position", "y position", "yaw angle", "x velocity", "y velocity", "yaw rate"]
+    for i in range(6):
+        row = i // 2
+        col = i % 2
+        axs[row, col].plot(traj[:, i], color='red', label="actual")
+        axs[row, col].plot(next_pred[:, i], color='blue', label="predicted")
+        axs[row, col].set_title(titles[i])
+        axs[row, col].legend()
+    plt.tight_layout()
+    plt.show()

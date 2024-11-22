@@ -62,7 +62,7 @@ axs[1, 0].grid()
 axs[1, 0].set_ylim([y_min, y_max])
 
 # Fourth subplot
-axs[1, 1].plot(t_values, spline_points3, '-', label='Spline3 with d[7] = 2.0 and d[3] = 5.0')
+axs[1, 1].plot(t_values, spline_points3, '-', label='Spline3 with d[3] = 2.0 and d[7] = 5.0')
 axs[1, 1].set_title('B-spline Curve 3')
 axs[1, 1].set_xlabel('X')
 axs[1, 1].set_ylabel('Y')

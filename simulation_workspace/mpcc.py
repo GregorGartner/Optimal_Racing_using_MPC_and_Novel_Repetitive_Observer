@@ -5,7 +5,7 @@ from helper_functions import get_demo_track_spline
 
 
 class MPC():
-    def __init__(self, Q1, Q2, R1, R2, R3, target_speed, N, car, dt):
+    def __init__(self, Q1, Q2, R1, R2, R3, target_speed, N, car, estimator, dt):
         self.Q1 = Q1
         self.Q2 = Q2
         self.R1 = R1
@@ -15,11 +15,12 @@ class MPC():
         self.N = N
         self.car = car
         self.dt = dt
+        self.estimator = estimator
 
     def get_ip_solver(self, N, dt, ns, nu):
 
         # state and input constraint values
-        state_min = [-20.0, -20.0, -1000.0, 0.0, -2.0, -4.0, 0.0, -0.4, 0.0]
+        state_min = [-20.0, -20.0, -1000.0, 0.1, -2.0, -4.0, 0.0, -0.4, 0.0]
         state_max = [20.0, 20.0, 1000.0, 3.5, 2.0, 4.0, 0.7, 0.4, 1000.0]
         input_min = [-2.0, -15.0, 0.0]
         input_max = [2.0, 15.0, 3.5]
@@ -45,9 +46,18 @@ class MPC():
 
         # initial state in params
         x0 = ca.MX.sym('x0', ns)
+        
 
         # get track spline for track constraints
         x_spline, y_spline, dx_spline, dy_spline, _ = get_demo_track_spline()
+
+        # variables for Kalman filter
+        d_min = [0.0, 0.0, 0.0, 0.0, 0.0, -10.0, 0.0, 0.0, 0.0]
+        d_max = [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0]
+        d_vec = ca.MX.sym('d_vec', self.estimator.n_points) # vector containing interpolation points
+        # H_k = self.estimator.H_k_func(theta)
+        d = ca.MX.sym('d', ns, N+1) # function value at specific theta
+        
 
         # defining objective
         objective = 0
@@ -80,28 +90,35 @@ class MPC():
         # constraint the states to follow car dynamics
         for i in range(N):
             constraints = ca.vertcat(
-                constraints, states[:, i + 1] - states[:, i] - self.car.state_update_rk4(states[:, i], inputs[:, i], dt))
+                constraints, states[:, i + 1] - states[:, i] - self.car.state_update_rk4(states[:, i], inputs[:, i], dt) - d[:, i])
 
         # constraint the states to be within the track limits
         for i in range(1, N+1):
             constraints = ca.vertcat(constraints, ca.constpow(x_p[i] - x_spline(theta[i]), 2) + ca.constpow(y_p[i] - y_spline(theta[i]), 2))
+            # constraints = ca.vertcat(constraints, -dy_spline(theta[i]) * (x_p[i] - x_spline(theta[i])) + dx_spline(theta[i]) * (y_p[i] - y_spline(theta[i])))
+            
+        # constraints on estimated disturbance
+        for i in range(0, N+1):
+            constraints = ca.vertcat(constraints, d[5, i] - self.estimator.H_k_func(theta[i] / self.estimator.discretization).T @ d_vec)
+        
+
 
         # initial state ns, dynamics N*ns, track limits N
-        h_min = np.concatenate((np.zeros(ns), np.zeros(N*ns), np.zeros(N)))
-        h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.23 * 0.23 * np.ones(N))) # 0.23 * 0.23
+        h_min = np.concatenate((np.zeros(ns), np.zeros(N*ns), np.zeros(N), np.zeros(N+1)))
+        h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.23 * 0.23 * np.ones(N), np.zeros(N+1))) # /// 0.23 * 0.23
 
         x_min = np.concatenate(
-            (np.tile(state_min, N + 1), np.tile(input_min, N)))
+            (np.tile(state_min, N + 1), np.tile(input_min, N), np.tile(d_min, N + 1)))
         x_max = np.concatenate(
-            (np.tile(state_max, N + 1), np.tile(input_max, N)))
+            (np.tile(state_max, N + 1), np.tile(input_max, N), np.tile(d_max, N + 1)))
 
-        x = ca.veccat(states, inputs)
-        parameters = ca.veccat(x0)
+        x = ca.veccat(states, inputs, d)
+        parameters = ca.veccat(x0, d_vec)
 
         print("Compiling IPOPT solver...")
         t0 = perf_counter()
         IP_nlp = {'x': x, 'f': objective, 'p': parameters, 'g': constraints}
-        IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp, {'ipopt': {'linear_solver': 'mumps' , 'max_iter': 100, 'print_level': 1,}}) #'linear_solver': 'ma57'
+        IP_solver = ca.nlpsol('S', 'ipopt', IP_nlp, {'ipopt': {'linear_solver': 'mumps' , 'max_iter': 100, 'print_level': 3,}}) #'linear_solver': 'ma57'
                               
         t1 = perf_counter()
         print("Finished compiling IPOPT solver in " + str(t1 - t0) + " seconds!")
@@ -119,10 +136,12 @@ class MPC():
         # Extract the solution and separate states and inputs
         sol_x = sol['x'].full().flatten()
         opt_states = sol_x[0:ns*(N+1)].reshape((N+1, ns))
-        opt_inputs = sol_x[ns*(N+1):].reshape((N, nu))
+        opt_inputs = sol_x[ns*(N+1):(N+1)*ns+N * nu].reshape((N, nu))
+        opt_d = sol_x[(N+1)*ns+N * nu:].reshape((N+1, ns))
+
 
         if IP_solver.stats()['return_status'] != 'Solve_Succeeded':
             print("---------------------------------" + IP_solver.stats()['return_status'] + "---------------------------------")
             #plot_trajectory(opt_states, 1)
 
-        return opt_states, opt_inputs
+        return opt_states, opt_inputs, opt_d
