@@ -23,7 +23,7 @@ def plot_trajectory(traj, final_traj):
     cmap = cm.viridis  # You can change this to any other colormap
 
     # Plotting the trajectory with gradient color scheme
-    scatter = plt.scatter(x, y, c=np.arange(num_points), cmap=cmap, norm=norm, s=15)
+    scatter = plt.scatter(x, y, c=np.arange(num_points), cmap=cmap, norm=norm, s=10)
     
     # Adding colorbar and associating it with the scatter plot
     plt.colorbar(scatter, label="Progression (Time)")
@@ -317,4 +317,68 @@ def plot_all_states(traj, next_pred):
         axs[row, col].set_title(titles[i])
         axs[row, col].legend()
     plt.tight_layout()
+    plt.show()
+
+
+
+
+
+# animate trajectory as video
+def animate_predictions(traj, predictions, dt=0.1):
+
+    # get x and y coordinates
+    x = traj[:, 0]
+    y = traj[:, 1]
+    x_pred = predictions[:, :, 0]
+    y_pred = predictions[:, :, 1]
+    
+    # Calculate interval in milliseconds
+    interval = 1000 * dt
+
+    # Create a figure and axis
+    fig, ax = plt.subplots()
+    ax.set_xlim(min(x) - 0.1, max(x) + 0.1)
+    ax.set_ylim(min(y) - 0.1, max(y) + 0.1)
+    
+    # Call plot_track with the axis object to plot the track on the same axis
+    plot_track(ax)
+
+    # Line that will represent the trajectory (initialize empty)
+    line, = ax.plot([], [], lw=5, color="red")
+    current_pos, = ax.plot([], [], 'bo', markersize=10)
+
+    # Initialize the animation
+    def init():
+        line.set_data([], [])
+        current_pos.set_data([], [])
+        return line, current_pos
+
+    # Update function for the first animation
+    def update1(frame):
+
+        # Plot the current point as dark blue and the previous points as light blue
+        xdata = x_pred[frame+1, : ]
+        ydata = y_pred[frame+1, : ]
+
+        # Update the line data
+        line.set_data(xdata, ydata)
+        line.set_color("red")
+        line.set_linewidth(5)
+
+        current_pos.set_data([x[frame]], [y[frame]])
+
+        return line, current_pos
+
+    # Update function for the second animation
+    def update2(frame):
+        # Update the line data
+        current_pos.set_data([x[frame]], [y[frame]])
+        return current_pos,
+
+    assert len(x_pred) == len(y_pred), "x_pred and y_pred must have the same length"
+
+    # Create the animation
+    ani1 = FuncAnimation(fig, update1, frames=len(x), init_func=init, interval=interval, blit=True)
+
+    # Show the animation
     plt.show()
