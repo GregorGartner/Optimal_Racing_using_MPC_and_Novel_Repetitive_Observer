@@ -34,11 +34,11 @@ Cd = 0.02750696 # 0.0612451
 Croll = 0.08518052 # 0.1409
 
 car = CarModel(lr, lf, m, I, Df, Cf, Bf, Dr, Cr, Br, Cm1, Cm2, Cd, Croll)
-car2 = CarModel(lr, lf, m, I*0.8, Df*0.8, Cf*0.8, Bf*0.8, Dr*0.8, Cr*0.8, Br*0.8, Cm1*0.8, Cm2*0.8, Cd*0.8, Croll*0.8)
+#car2 = CarModel(lr, lf, m, I*0.8, Df*0.8, Cf*0.8, Bf*0.8, Dr*0.8, Cr*0.8, Br*0.8, Cm1*0.8, Cm2*0.8, Cd*0.8, Croll*0.8)
 
 ### --- initialize Kalman filter --- ###
 num_fitting_points = 200 # step size for track discretization
-estimator = KalmanFilter(car2, tracklength=tracklength, num_fitting_points=num_fitting_points, KF_type='linear', P=1, R=0.1)
+estimator = KalmanFilter(car, tracklength=tracklength, num_fitting_points=num_fitting_points, KF_type='linear', P=1, R=0.1)
 
 ### --- Initializing the MPC --- ###
 # weights for the cost function
@@ -46,19 +46,19 @@ Q1 = 10.0 # contouring cost 1.5 /// 10.0
 Q2 = 1000.0  # lag cost 12.0 /// 1000.0
 R1 = 0.1  # cost for change of acceleration 1.0 /// 0.1
 R2 = 0.3  # cost for change of steering angle 1.0 /// 0.3
-R3 = 30  # cost for deviation of progress speed dtheta to target progress speed 1.3 /// 0.2
+R3 = 0.2  # cost for deviation of progress speed dtheta to target progress speed 1.3 /// 0.2
 target_speed = 3.5  # target speed of progress theta 3.6 /// 3.5
 # problem parameters
 dt = 1/30  # step size
 N = 20  # horizon length of MPC
 ns = 9  # number of states
 nu = 3  # number of inputs
-controller = MPC(Q1, Q2, R1, R2, R3, target_speed, N, car2, estimator, dt)
+controller = MPC(Q1, Q2, R1, R2, R3, target_speed, N, car, estimator, dt)
 
 
 
 ### --- Initializing the Simulation --- ###
-steps = 700 # number of simulatoin steps
+steps = 800 # number of simulatoin steps
 prev_state = np.array([0.48106088, -1.05, 0, 1.18079094, 0, 0, 0.4, 0, 0]) # initial state
 
 traj = np.zeros((steps, ns)) # array to save trajectory
@@ -135,7 +135,7 @@ for i in range(N):
 #######################################################################################
 
 # creater solver based on MPCC problem
-rejection = False # turn on disturbance rejection
+rejection = True # turn on disturbance rejection
 IP_solver, x_min, x_max, h_min, h_max = controller.get_ip_solver(N, dt, ns, rejection, nu)
 
 # initial state car and initial guess to warm-start the solver
@@ -147,7 +147,7 @@ else:
 
 # matrix to save progress of the disturance estimates and state predictions
 current_estimate_vector = np.zeros((steps, 3)) # saves current disturbance estimates for v_x, v_y and omega over time
-#actual_disturbance_vector = np.zeros((steps, ns)) # saves the actual disturbance over time
+actual_disturbance_vector = np.zeros((steps, ns)) # saves the actual disturbance over time
 next_pred = np.zeros((steps, ns)) # saves the next step prediction of MPC over time
 KF_error_vector = np.zeros((steps, 3)) # saves one-step predicition error of Kalman filter for V_x, v_y and omega
 time = np.zeros(steps) # saves the time needed to solve the optimization problem
@@ -162,9 +162,9 @@ for i in range(steps):
     
     # turn on disturbance rejection after 220 steps (roughly one lap)
     if i < 200:
-        learning_phase = False
-    else:
         learning_phase = True
+    else:
+        learning_phase = False
 
     # solve optimization problem and measure time
     t0 = perf_counter()
@@ -180,16 +180,16 @@ for i in range(steps):
 
     # incorporating model mismatch
     #- ca.cos(prev_state[theta_index] * period_factor) * 0.01,
-    # actual_disturbance_vector[i] = np.array([0.0,
-    #                                          0.0,
-    #                                          0.0,
-    #                                          - ca.cos(prev_state[theta_index] * period_factor) * 0.2, 
-    #                                          - ca.cos(prev_state[theta_index] * period_factor) * 0.1,
-    #                                          - ca.cos(prev_state[theta_index] * period_factor) * 0.7,
-    #                                          0.0,
-    #                                          0.0,
-    #                                          0.0])
-    # new_state = new_state - actual_disturbance_vector[i]
+    actual_disturbance_vector[i] = np.array([0.0,
+                                             0.0,
+                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.05,
+                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.0, 
+                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.0,
+                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.0,
+                                             0.0,
+                                             0.0,
+                                             0.0])
+    new_state = new_state + actual_disturbance_vector[i]
 
 
     # use Kalman filter for update of disturbance function estimate
@@ -262,7 +262,7 @@ axs[2].set_title("omega disturbance estimate over time")
 plt.tight_layout()
 plt.show()
 
-# plotting the disturbance estimation of the KF at the current thetas over time
+# plotting the KF error of the observer at the current thetas over time
 fig, axs = plt.subplots(3, 1, figsize=(12, 8))
 axs[0].plot(KF_error_vector[:, 0], color='blue')
 axs[0].set_title("v_x KF_error")
@@ -301,12 +301,12 @@ plt.show()
 
 
 
-# # plot difference between trajectory and prediction
-# plt.figure(figsize=(10, 7))
-# plt.plot(traj[:, 5] - next_pred[:, 5], color='blue')
-# plt.title("Difference between trajectory and prediction")
-# plt.legend()
-# plt.show()
+# plot difference between trajectory and prediction
+plt.figure(figsize=(10, 7))
+plt.plot(traj[:, 5] - next_pred[:, 5], color='blue')
+plt.title("Difference between trajectory and prediction")
+plt.legend()
+plt.show()
 
 
 

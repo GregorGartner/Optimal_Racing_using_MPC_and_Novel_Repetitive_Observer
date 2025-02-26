@@ -17,14 +17,13 @@ class MPC():
         self.dt = dt
         self.estimator = estimator
 
-    def get_ip_solver(self, N, dt, ns, rejection,nu):
-        self.rejection = rejection
+    def get_ip_solver(self, N, dt, ns, nu):
 
         # state and input constraint values
         state_min = [-20.0, -20.0, -1000.0, 0.1, -2.0, -4.0, 0.0, -0.4, 0.0]
         state_max = [20.0, 20.0, 1000.0, 3.5, 2.0, 4.0, 0.7, 0.4, 1000.0]
         input_min = [-2.0, -15.0, 0.0]
-        input_max = [2.0, 15.0, 4.0]
+        input_max = [2.0, 15.0, 3.5]
 
 
         # symbolic state variables
@@ -52,12 +51,12 @@ class MPC():
         # get track spline for track constraints
         x_spline, y_spline, dx_spline, dy_spline, _ = get_demo_track_spline()
 
-        if rejection:
-            # variables for Kalman filter
-            d_min = [0.0, 0.0, -10.0, -10.0, -10.0, 0.0, 0.0, 0.0, 0.0]
-            d_max = [0.0, 0.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0]
-            d_vec = ca.MX.sym('d_vec', self.estimator.n_points, 3) # vector containing interpolation points
-            d = ca.MX.sym('d', ns, N+1) # function value at specific theta
+        # variables for Kalman filter
+        d_min = [0.0, 0.0, 0.0, 0.0, 0.0, -10.0, 0.0, 0.0, 0.0]
+        d_max = [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0]
+        d_vec = ca.MX.sym('d_vec', self.estimator.n_points) # vector containing interpolation points
+        # H_k = self.estimator.H_k_func(theta)
+        d = ca.MX.sym('d', ns, N+1) # function value at specific theta
         
 
         # defining objective
@@ -90,51 +89,31 @@ class MPC():
 
         # constraint the states to follow car dynamics
         for i in range(N):
-            if rejection:
-                constraints = ca.vertcat(
-                    constraints, states[:, i + 1] - states[:, i] - self.car.state_update_rk4(states[:, i], inputs[:, i], dt) - d[:, i])
-            else:
-                constraints = ca.vertcat(
-                    constraints, states[:, i + 1] - states[:, i] - self.car.state_update_rk4(states[:, i], inputs[:, i], dt))
+            constraints = ca.vertcat(
+                constraints, states[:, i + 1] - states[:, i] - self.car.state_update_rk4(states[:, i], inputs[:, i], dt) - d[:, i])
 
         # constraint the states to be within the track limits
         for i in range(1, N+1):
             constraints = ca.vertcat(constraints, ca.constpow(x_p[i] - x_spline(theta[i]), 2) + ca.constpow(y_p[i] - y_spline(theta[i]), 2))
             # constraints = ca.vertcat(constraints, -dy_spline(theta[i]) * (x_p[i] - x_spline(theta[i])) + dx_spline(theta[i]) * (y_p[i] - y_spline(theta[i])))
+            
+        # constraints on estimated disturbance
+        for i in range(0, N+1):
+            constraints = ca.vertcat(constraints, d[5, i] - self.estimator.H_k_func(theta[i] / self.estimator.discretization).T @ d_vec)
         
-        if rejection:
-            # constraints on estimated disturbance
-            for i in range(0, N+1):
-                constraints = ca.vertcat(constraints, d[2:5, i] - d_vec.T @ self.estimator.H_k_func(theta[i] / self.estimator.discretization))
-        
 
 
-        # initial state ns, dynamics N*ns, track limits N, disturbance N+1
-        if rejection:
-            h_min = np.concatenate((np.zeros(ns), np.zeros(N*ns), np.zeros(N), np.zeros(3*(N+1))))
-            h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.23 * 0.23 * np.ones(N), np.zeros(3*(N+1)))) # /// 0.23 * 0.23
-                                   
-            x_min = np.concatenate(
-                (np.tile(state_min, N + 1), np.tile(input_min, N), np.tile(d_min, N + 1)))
-            x_max = np.concatenate(
-                (np.tile(state_max, N + 1), np.tile(input_max, N), np.tile(d_max, N + 1)))
+        # initial state ns, dynamics N*ns, track limits N
+        h_min = np.concatenate((np.zeros(ns), np.zeros(N*ns), np.zeros(N), np.zeros(N+1)))
+        h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.23 * 0.23 * np.ones(N), np.zeros(N+1))) # /// 0.23 * 0.23
 
-            x = ca.veccat(states, inputs, d)
-            parameters = ca.veccat(x0, d_vec)
+        x_min = np.concatenate(
+            (np.tile(state_min, N + 1), np.tile(input_min, N), np.tile(d_min, N + 1)))
+        x_max = np.concatenate(
+            (np.tile(state_max, N + 1), np.tile(input_max, N), np.tile(d_max, N + 1)))
 
-        else:
-            h_min = np.concatenate((np.zeros(ns), np.zeros(N*ns), np.zeros(N)))
-            h_max = np.concatenate((np.zeros(ns), np.zeros(N*ns), 0.23 * 0.23 * np.ones(N)))
-                                   
-            x_min = np.concatenate(
-                (np.tile(state_min, N + 1), np.tile(input_min, N)))
-            x_max = np.concatenate(
-                (np.tile(state_max, N + 1), np.tile(input_max, N)))
-
-            x = ca.veccat(states, inputs)
-            parameters = ca.veccat(x0)
-
-        
+        x = ca.veccat(states, inputs, d)
+        parameters = ca.veccat(x0, d_vec)
 
         print("Compiling IPOPT solver...")
         t0 = perf_counter()
@@ -148,17 +127,13 @@ class MPC():
 
 
     # solve MPC optimization problem
-    def mpc_controller(self, IP_solver, x_min, x_max, h_min, h_max, initial_guess, prev_state, N, ns, nu, learning_phase: bool):
+    def mpc_controller(self, IP_solver, x_min, x_max, h_min, h_max, initial_guess, prev_state, N, ns, nu, disturbance_rejection_on=True):
         
         # provide disturbance estimate if error correction is desired
-        if self.rejection and not learning_phase:
+        if disturbance_rejection_on:
             parameters = ca.veccat(prev_state, self.estimator.disturbance_vector)
-        elif self.rejection and learning_phase:
-            parameters = ca.veccat(prev_state, np.zeros((self.estimator.n_points, 3)))
         else:
-            parameters = ca.veccat(prev_state)
-
-        # print(parameters)
+            parameters = ca.veccat(prev_state, np.zeros(len(self.estimator.disturbance_vector)))
 
         # solve optimization problem
         sol = IP_solver(x0=initial_guess, p=parameters, lbx=x_min, ubx=x_max, lbg=h_min, ubg=h_max)
@@ -168,14 +143,10 @@ class MPC():
         sol_x = sol['x'].full().flatten()
         opt_states = sol_x[0:ns*(N+1)].reshape((N+1, ns))
         opt_inputs = sol_x[ns*(N+1):(N+1)*ns+N * nu].reshape((N, nu))
-        
+        opt_d = sol_x[(N+1)*ns+N * nu:].reshape((N+1, ns))
 
         # check if the solver was successful
         if IP_solver.stats()['return_status'] != 'Solve_Succeeded':
             print("---------------------------------" + IP_solver.stats()['return_status'] + "---------------------------------")
 
-        if self.rejection:
-            opt_d = sol_x[(N+1)*ns+N * nu:].reshape((N+1, ns))
-        else:
-            opt_d = None
         return opt_states, opt_inputs, opt_d

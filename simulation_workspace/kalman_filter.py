@@ -62,7 +62,7 @@ class KalmanFilter():
 
 
     def estimate(self, prev_state, u0, new_state, dt):
-        d_mes = new_state[3:6] - prev_state[3:6] - self.car.state_update_rk4(prev_state, u0, dt, True)[3:6]
+        d_mes = new_state[2:5] - prev_state[2:5] - self.car.state_update_rk4(prev_state, u0, dt, True)[2:5]
         arg = prev_state[8] # position of the car on the track
         laps = ca.floor(arg / self.trackLength)
         arg = arg - self.trackLength * laps
