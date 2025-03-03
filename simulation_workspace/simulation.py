@@ -179,7 +179,6 @@ for i in range(steps):
     new_state = prev_state + car.state_update_rk4(prev_state, u0, dt, True)
 
     # incorporating model mismatch
-    #- ca.cos(prev_state[theta_index] * period_factor) * 0.01,
     actual_disturbance_vector[i] = np.array([0.0,
                                              0.0,
                                              - ca.cos(prev_state[theta_index] * period_factor) * 0.05,
