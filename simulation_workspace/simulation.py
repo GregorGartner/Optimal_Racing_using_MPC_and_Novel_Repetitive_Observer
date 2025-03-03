@@ -183,9 +183,9 @@ for i in range(steps):
     actual_disturbance_vector[i] = np.array([0.0,
                                              0.0,
                                              - ca.cos(prev_state[theta_index] * period_factor) * 0.05,
-                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.0, 
-                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.0,
-                                             - ca.cos(prev_state[theta_index] * period_factor) * 0.0,
+                                             0.0,
+                                             0.0,
+                                             0.0,
                                              0.0,
                                              0.0,
                                              0.0])
